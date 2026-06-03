@@ -1,9 +1,7 @@
 "use client";
-jsx;
 
 import Image from "next/image";
 import { useMemo } from "react";
-import { jsx } from "react/jsx-runtime";
 import { useMicVAD } from "@ricky0123/vad-react"
 
 import { SkinConfigurations } from "./types/skinConfig";
@@ -15,11 +13,6 @@ import { IntroPopup } from "./components/intro-popup";
 import { MarkdownLatex } from "./components/markdown-latex";
 
 import xRxClient from "../../../xrx-core/react-xrx-client/src";
-
-interface DataItem {
-  date: string;
-  value: number;
-}
 
 declare global {
   interface Window {
@@ -40,7 +33,7 @@ const STT_SAMPLE_RATE = process.env.STT_SAMPLE_RATE || "16000";
 const NEXT_PUBLIC_GREETING_FILENAME = process.env.NEXT_PUBLIC_GREETING_FILENAME || "greeting.mp3";
   
 // see SkinConfigurations for available agents
-const NEXT_PUBLIC_AGENT = process.env.NEXT_PUBLIC_AGENT || "pizza-agent";
+const NEXT_PUBLIC_AGENT = process.env.NEXT_PUBLIC_AGENT || "math-tutor";
 const skinConfig = SkinConfigurations[NEXT_PUBLIC_AGENT];
 
 
@@ -109,39 +102,6 @@ export default function Home() {
   const handleRecordClick = () => {
     toggleIsRecording();
   }
-
-  const exportToCSV = (data: DataItem[], filename: string) => {
-    // Convert data array to CSV string
-    const csvRows = [];
-  
-    // Get headers (keys from the first object)
-    const headers = Object.keys(data[0]) as Array<keyof DataItem>;
-
-    csvRows.push(headers.join(','));
-  
-    // Loop over the rows
-    for (const row of data) {
-      const values = headers.map((header: keyof DataItem) => {
-        const escaped = ('' + row[header]).replace(/"/g, '""');
-        return `"${escaped}"`;
-      });
-      csvRows.push(values.join(','));
-    }
-  
-    // Create a Blob from the CSV string
-    const csvString = csvRows.join('\n');
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-  
-    // Create a link to trigger the download
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.setAttribute('download', `${filename}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
 
   const renderedWidgets = useMemo(() => {
     console.log(JSON.stringify(chatHistory));

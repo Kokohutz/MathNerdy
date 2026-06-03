@@ -289,31 +289,48 @@ async def single_turn_agent(messages: List[dict], task_id: str):
     messages.insert(0, system_prompt)
     messages.insert(1, first_assistant_message)
 
-    # TODO: Improve this logic. This retries to ideally fix if there is a JSON error. Either except should be specific to JSON error or another model should fix the JSON.
+    response = client.chat.completions.create(
+        model=os.environ["LLM_MODEL_ID"],
+        messages=messages,
+        max_tokens=4096,
+        response_format={"type": "json_object"},
+    )
+    response_message = response.choices[0].message.content
+
+    # Parse the response. If the model returned malformed JSON, retry once by
+    # feeding the broken output back to it and asking for a repair, rather than
+    # blindly repeating the identical call.
     try:
+        response_message_dict = json.loads(response_message)
+    except json.JSONDecodeError as e:
+        logging.warning(f"Malformed JSON from model, attempting repair: {e}")
+        repair_messages = messages + [
+            {"role": "assistant", "content": response_message},
+            {
+                "role": "user",
+                "content": (
+                    "Your previous response could not be parsed as JSON "
+                    f"({e}). Resend the same content as a single valid JSON "
+                    "object with the required 'widgets' and 'response' fields. "
+                    "Output only the JSON."
+                ),
+            },
+        ]
         response = client.chat.completions.create(
             model=os.environ["LLM_MODEL_ID"],
-            messages=messages,
+            messages=repair_messages,
             max_tokens=4096,
             response_format={"type": "json_object"},
         )
-    except:  # TODO: show output from last model to help this one fix JSON...
-        response = client.chat.completions.create(
-            model=os.environ["LLM_MODEL_ID"],
-            messages=messages,
-            max_tokens=4096,
-            response_format={"type": "json_object"},
-        )
+        response_message = response.choices[0].message.content
+        response_message_dict = json.loads(response_message)
 
     # save the message
-    response_message = response.choices[0].message.content
     messages.append({"role": "assistant", "content": response_message})
 
     # log the response message
     logging.info(f"LLM Response: {response_message}")
 
-    # parse the response
-    response_message_dict = json.loads(response_message)
     human_response = response_message_dict["response"]
 
     # get old session information

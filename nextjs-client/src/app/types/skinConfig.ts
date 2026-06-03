@@ -14,7 +14,22 @@ interface SkinConfig {
     thinkingColor: string;
   };
 }
-const SkinConfigurations: Record<string, SkinConfig> = {  
+const SkinConfigurations: Record<string, SkinConfig> = {
+  "math-tutor": {
+    buttonText: "Start Learning",
+    logoSrc: "/groqlabs-logo-black.png",
+    welcomeScreenLogoSrc: "/groqlabs-logo-black.png",
+    greetingSrc: "/greeting.mp3",
+    styles: {
+      backgroundColor: "#fff5f0",
+      secondaryColor: "#F55036",
+      mainFont: "Open Sans, Arial, Helvetica, sans-serif",
+      logoBackgroundColor: "#ffe3d6",
+      fontColorOnBackground: "#333",
+      speakingPulseColor: "#F15950",
+      thinkingColor: "#F15950"
+    }
+  },
   "pizza-agent": {
     buttonText: "Start Order",
     logoSrc: "/pizza-logo.png",

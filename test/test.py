@@ -5,8 +5,8 @@ import uuid
 from rich import print as rprint
 from termcolor import colored
 
-class TestShopifyAgent(unittest.TestCase):
-   
+class TestMathTutorAgent(unittest.TestCase):
+
     URL = "http://127.0.0.1:8003/run-reasoning-agent"
     ITERATIONS = 5
 
@@ -18,11 +18,11 @@ class TestShopifyAgent(unittest.TestCase):
     def setUp(self):
         self.session = { 'guid': str(uuid.uuid4())}
         self.test_messages = [
-            "I want a pizza.",
+            "Can you explain derivatives?",
             "hello!",
-            "I want a large pizza.",
-            "How much is a medium pizza?",
-            "Whats on the menu?"
+            "What is the derivative of x squared?",
+            "Show me the power rule.",
+            "Can you integrate sin of x?"
         ]
 
     def test_single_turn_agent_responses(self):
@@ -44,14 +44,14 @@ class TestShopifyAgent(unittest.TestCase):
     def test_multi_turn_conversations(self):
         conversations = [
             [
-                "How much is a medium pizza?",
-                "Ok I'll take one of those please",
-                "Nope that is all I need"
+                "What is the derivative of x cubed?",
+                "Can you show me the steps?",
+                "Thanks, that's all I needed"
             ],
             [
-                "What's on the menu?",
-                "What size of pizzas are there?",
-                "How much is the large?"
+                "Can you explain limits?",
+                "What is the limit of sin x over x as x goes to zero?",
+                "Got it, thank you!"
             ]
         ]
         

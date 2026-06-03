@@ -26,3 +26,7 @@ ELEVENLABS_VOICE_ID="Xb7hH8MSUJpSbSDYk0k2"
 REASONING_DIRECTORY="./reasoning/"
 REDIS_HOST="xrx-redis"
 LLM_OBSERVABILITY_LIBRARY="none"
+
+# === Frontend ===
+# Selects the UI skin in nextjs-client/src/app/types/skinConfig.ts
+NEXT_PUBLIC_AGENT="math-tutor"

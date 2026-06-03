@@ -1,8 +1,7 @@
 from sympy import *
 from sympy.abc import x
-import re
 import logging
-from typing import Optional
+from typing import List, Optional
 import ast
 
 def calc_solve(expression: str, operation: str = 'derivative', point: float = None, terms: int = None) -> str:
@@ -110,26 +109,62 @@ def calc_solve(expression: str, operation: str = 'derivative', point: float = No
     
     return '\n'.join(result)
 
+def _find_calls(text: str, func_name: str) -> List[str]:
+    """
+    Return every `func_name(...)` substring in `text` with balanced parentheses,
+    correctly skipping parentheses and commas that appear inside string literals.
+    """
+    calls = []
+    needle = func_name + "("
+    idx = 0
+    while True:
+        start = text.find(needle, idx)
+        if start == -1:
+            break
+        i = start + len(needle)
+        depth = 1
+        quote = None
+        while i < len(text) and depth > 0:
+            ch = text[i]
+            if quote:
+                if ch == quote and text[i - 1] != "\\":
+                    quote = None
+            elif ch in "\"'":
+                quote = ch
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            i += 1
+        if depth != 0:
+            break  # unbalanced; bail out
+        calls.append(text[start:i])
+        idx = i
+    return calls
+
+
 def process_calc_solve(text: str) -> Optional[str]:
     """
-    Extract and execute calc_solve function calls from text.
+    Extract and execute calc_solve(...) calls found anywhere in `text`.
+
+    Handles every documented call shape, e.g.:
+        calc_solve("x^2")                              # default derivative
+        calc_solve("3*x^2", operation="integral")
+        calc_solve("sin(x)/x", operation="limit", point=0)
+        calc_solve("exp(x)", operation="series", point=0, terms=4)
     """
-    pattern = r'calc_solve\s*\(\s*["\']([^"\']+)["\']\s*,\s*operation\s*=\s*["\']([^"\']+)["\']\s*\)'
-    matches = re.findall(pattern, text)
-    
-    if not matches:
-        return None
-        
     results = []
-    for expression, operation in matches:
+    for call_src in _find_calls(text, "calc_solve"):
         try:
-            result = calc_solve(expression, operation=operation)
-            results.append(result)
+            node = ast.parse(call_src, mode="eval").body
+            args = [ast.literal_eval(arg) for arg in node.args]
+            kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in node.keywords}
+            results.append(calc_solve(*args, **kwargs))
         except Exception as e:
-            logging.error(f"Error executing calc_solve for expression '{expression}': {str(e)}")
+            logging.error(f"Error executing calc_solve call '{call_src}': {str(e)}")
             continue
-    
+
     return "\n\n".join(results) if results else None
 
 
-# print(process_calc_solve("""calc_solve("3*x**2 + 2*sin(x)", operation='derivative')\ncalc_solve("2*sin(x)", operation='derivative')"""))
+# print(process_calc_solve("""calc_solve("3*x**2 + 2*sin(x)")\ncalc_solve("sin(x)/x", operation="limit", point=0)"""))
