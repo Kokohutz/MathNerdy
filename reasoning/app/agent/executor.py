@@ -24,6 +24,62 @@ MODEL = os.environ["LLM_MODEL_ID"]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s:%(message)s")
 
+# Structured Outputs schema for a tutor turn. Forcing this with strict mode
+# (supported on the GPT-5 / GPT-4.1 families) guarantees the {widgets, response}
+# shape, so we no longer rely on the model to hand-format valid JSON.
+TUTOR_TURN_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "tutor_turn",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["widgets", "response"],
+            "properties": {
+                "widgets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["type", "parameters"],
+                        "properties": {
+                            "type": {"type": "string"},
+                            "parameters": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["content"],
+                                "properties": {"content": {"type": "string"}},
+                            },
+                        },
+                    },
+                },
+                "response": {"type": "string"},
+            },
+        },
+    },
+}
+
+
+def _create_tutor_turn(messages: List[dict]):
+    """Call the LLM for a tutor turn using Structured Outputs, falling back to
+    legacy JSON mode if the configured model doesn't support json_schema."""
+    try:
+        return client.chat.completions.create(
+            model=os.environ["LLM_MODEL_ID"],
+            messages=messages,
+            max_tokens=4096,
+            response_format=TUTOR_TURN_SCHEMA,
+        )
+    except Exception as e:
+        logging.warning(f"Structured Outputs unavailable ({e}); using JSON mode")
+        return client.chat.completions.create(
+            model=os.environ["LLM_MODEL_ID"],
+            messages=messages,
+            max_tokens=4096,
+            response_format={"type": "json_object"},
+        )
+
 SYSTEM_PROMPT = """You are a calculus tutor that helps students. You can show live interfaces to the user of mathematic equations as a whiteboard with LaTeX styling.
 
 ## Style and Tone
@@ -289,17 +345,13 @@ async def single_turn_agent(messages: List[dict], task_id: str):
     messages.insert(0, system_prompt)
     messages.insert(1, first_assistant_message)
 
-    response = client.chat.completions.create(
-        model=os.environ["LLM_MODEL_ID"],
-        messages=messages,
-        max_tokens=4096,
-        response_format={"type": "json_object"},
-    )
+    response = _create_tutor_turn(messages)
     response_message = response.choices[0].message.content
 
-    # Parse the response. If the model returned malformed JSON, retry once by
-    # feeding the broken output back to it and asking for a repair, rather than
-    # blindly repeating the identical call.
+    # With Structured Outputs the JSON is guaranteed well-formed. The repair path
+    # below only matters when we fell back to legacy JSON mode (older/other
+    # models): feed the broken output back and ask for a fix, rather than blindly
+    # repeating the identical call.
     try:
         response_message_dict = json.loads(response_message)
     except json.JSONDecodeError as e:

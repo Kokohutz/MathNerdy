@@ -84,8 +84,15 @@ compute it, at the cost of one extra LLM call per turn.
 
 The reasoning client (`initialize_llm_client` from `xrx-core`) is the OpenAI
 SDK driven entirely by `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL_ID`, so
-switching providers/models is a config change. `LLM_MODEL_ID` must support JSON
-mode (`response_format=json_object`).
+switching providers/models is a config change. Default model is **`gpt-5.4`**
+(vision-capable, cost/quality balance; `gpt-5.5` for higher quality,
+`gpt-5.4-mini`/`-nano` for cost).
+
+The tutor turn uses **Structured Outputs** (`response_format` `json_schema`,
+`strict: true` — see `TUTOR_TURN_SCHEMA` in `executor.py`), which guarantees the
+`{widgets, response}` shape on the GPT-5 / GPT-4.1 families. `_create_tutor_turn`
+falls back to legacy JSON mode (`json_object`) + a JSON-repair retry for models
+that don't support it.
 
 ### `calc_solve` contract (`calculator.py`)
 ```python

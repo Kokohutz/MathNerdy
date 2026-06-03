@@ -8,10 +8,12 @@
 
 # === LLM Configuration (OpenAI) ===
 # The reasoning agent uses the OpenAI SDK; point it at the OpenAI API.
-# LLM_MODEL_ID must support JSON mode (response_format=json_object).
+# gpt-5.4 is the cost/quality sweet spot and supports Structured Outputs
+# (response_format json_schema). Cheaper: gpt-5.4-mini / gpt-5.4-nano.
+# Higher quality: gpt-5.5. The model must support Structured Outputs.
 LLM_API_KEY="your_openai_api_key_here"
 LLM_BASE_URL="https://api.openai.com/v1"
-LLM_MODEL_ID="gpt-4o"
+LLM_MODEL_ID="gpt-5.4"
 
 # === Speech-to-Text (STT) Configuration ===
 # STT is a separate service (not the chat LLM). Groq Whisper is the default;
@@ -41,5 +43,6 @@ NEXT_PUBLIC_AGENT="math-tutor"
 # vision model via the OpenAI API. Used server-side only. VISION_MODEL_ID
 # must be a vision-capable model. If OPENAI_API_KEY is unset the route falls
 # back to LLM_API_KEY, so a single OpenAI key works for everything.
+# gpt-5.4 is vision-capable and strong at handwriting; gpt-5.5 is higher quality.
 OPENAI_API_KEY="your_openai_api_key_here"
-VISION_MODEL_ID="gpt-4o"
+VISION_MODEL_ID="gpt-5.4"
