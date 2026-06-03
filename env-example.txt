@@ -1,17 +1,22 @@
 # ============== Configuration ==============
 # Minimal configuration to get started.
 # Get your API keys from the following URLs:
-# - Groq: https://console.groq.com/keys/
+# - OpenAI: https://platform.openai.com/api-keys
+# - Groq (STT only): https://console.groq.com/keys/
 # - ElevenLabs: https://elevenlabs.io/app/speech-synthesis/text-to-speech
 # =============================================
 
-# === LLM Configuration ===
-LLM_API_KEY="your_groq_api_key_here"
-LLM_BASE_URL="https://api.groq.com/openai/v1"
-LLM_MODEL_ID="llama-3.3-70b-specdec"
+# === LLM Configuration (OpenAI) ===
+# The reasoning agent uses the OpenAI SDK; point it at the OpenAI API.
+# LLM_MODEL_ID must support JSON mode (response_format=json_object).
+LLM_API_KEY="your_openai_api_key_here"
+LLM_BASE_URL="https://api.openai.com/v1"
+LLM_MODEL_ID="gpt-4o"
 
 # === Speech-to-Text (STT) Configuration ===
-STT_PROVIDER="groq"     # Alternative providers are  "deepgram", "faster_whisper"
+# STT is a separate service (not the chat LLM). Groq Whisper is the default;
+# alternatives are "deepgram" and "faster_whisper" (local, no key).
+STT_PROVIDER="groq"
 GROQ_STT_API_KEY="your_groq_api_key_here"
 
 # === Text-to-Speech (TTS) Configuration ===
@@ -33,6 +38,8 @@ NEXT_PUBLIC_AGENT="math-tutor"
 
 # === Handwriting whiteboard (vision) ===
 # The /api/handwriting route reads the student's handwritten work with a
-# vision model via the OpenAI API. Used server-side only.
+# vision model via the OpenAI API. Used server-side only. VISION_MODEL_ID
+# must be a vision-capable model. If OPENAI_API_KEY is unset the route falls
+# back to LLM_API_KEY, so a single OpenAI key works for everything.
 OPENAI_API_KEY="your_openai_api_key_here"
 VISION_MODEL_ID="gpt-4o"

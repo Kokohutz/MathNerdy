@@ -6,7 +6,10 @@ import OpenAI from "openai";
 // reading + feedback. This runs server-side so OPENAI_API_KEY never reaches the
 // browser.
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Now that all LLM usage is OpenAI, fall back to LLM_API_KEY so a single key
+// works for both the reasoning agent and this vision route.
+const apiKey = process.env.OPENAI_API_KEY || process.env.LLM_API_KEY;
+const openai = new OpenAI({ apiKey });
 const VISION_MODEL = process.env.VISION_MODEL_ID || "gpt-4o";
 
 const SYSTEM_PROMPT = `You are a friendly calculus tutor reading a student's handwritten work on a whiteboard.
@@ -34,9 +37,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!apiKey) {
       return NextResponse.json(
-        { error: "OPENAI_API_KEY is not configured on the server" },
+        { error: "No OpenAI key configured (set OPENAI_API_KEY or LLM_API_KEY)" },
         { status: 500 }
       );
     }

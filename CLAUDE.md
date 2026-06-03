@@ -2,8 +2,9 @@
 
 A voice-enabled AI **calculus tutor**. The student speaks; the app replies with
 synthesized speech **and** renders live LaTeX/Markdown math on an interactive
-"whiteboard." Built on **8090's xRx framework**, with **Groq** (Llama 3.3 70b +
-Whisper STT) and **ElevenLabs** (TTS).
+"whiteboard." Built on **8090's xRx framework**. The reasoning LLM and the
+handwriting-vision call both use the **OpenAI API** (model via env); STT is
+**Whisper on Groq** and TTS is **ElevenLabs** (both swappable, separate services).
 
 > Fork of `bklieger-groq/mathtutor-on-groq` ("Math Tutor on Groq").
 
@@ -79,7 +80,12 @@ The brain of the app. Each conversational turn runs a **two-LLM-call pipeline**.
 ### Design insight
 Solve the math **deterministically with SymPy first**, then hand the result to
 the LLM. This keeps arithmetic/algebra accurate instead of trusting the model to
-compute it. Groq's latency makes the extra call cheap enough to feel instant.
+compute it, at the cost of one extra LLM call per turn.
+
+The reasoning client (`initialize_llm_client` from `xrx-core`) is the OpenAI
+SDK driven entirely by `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL_ID`, so
+switching providers/models is a config change. `LLM_MODEL_ID` must support JSON
+mode (`response_format=json_object`).
 
 ### `calc_solve` contract (`calculator.py`)
 ```python
@@ -143,9 +149,11 @@ cp env-example.txt .env               # then add your API keys
 docker-compose up --build             # app at http://localhost:3000
 ```
 
-Required `.env` keys (see `env-example.txt`): `LLM_API_KEY`, `GROQ_STT_API_KEY`,
-`ELEVENLABS_API_KEY`. `NEXT_PUBLIC_AGENT` selects the UI skin (default
-`math-tutor`).
+Required `.env` keys (see `env-example.txt`): `LLM_API_KEY` (OpenAI),
+`GROQ_STT_API_KEY`, `ELEVENLABS_API_KEY`, and `OPENAI_API_KEY` for the
+handwriting vision route (falls back to `LLM_API_KEY` if unset).
+`NEXT_PUBLIC_AGENT` selects the UI skin (default `math-tutor`); `LLM_MODEL_ID`
+and `VISION_MODEL_ID` select the models.
 
 ---
 
