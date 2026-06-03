@@ -109,6 +109,30 @@ last `widget` message, `JSON.parse`s its `details`, and renders each entry by
 `type`. Today only `defineWhiteboard` is handled — add new widget types by
 extending that `switch`.
 
+### Handwriting whiteboard (input + vision feedback)
+
+`components/handwriting-canvas.tsx` lets the student **draw** math; a vision model
+reads it and gives feedback. It implements a two-loop architecture:
+
+- **Fast loop** — a ~120ms `setInterval` heartbeat that watches the stroke buffer
+  for a pause (boundary detection). It never touches the network. Pointer events
+  capture `{x, y, t, pressure}` into a stroke buffer ("strokes, not pixels").
+- **Slow loop** — on a detected pause it rasterizes the canvas to a PNG data URL
+  and POSTs to `/api/handwriting`. It is guarded so only one request runs at a
+  time, and a cheap content signature (`strokes:points`) prevents re-analyzing
+  unchanged work. The returned `{ reading, feedback }` is rendered via
+  `MarkdownLatex` (LaTeX-aware).
+
+`api/handwriting/route.ts` is a **server-side** Next.js route that calls the
+**OpenAI vision API** (`VISION_MODEL_ID`, default `gpt-4o`) using
+`OPENAI_API_KEY`. The key never reaches the browser. It returns a JSON object
+`{ reading, feedback }`.
+
+> Known gaps vs. a production handwriting product: the fast loop does boundary
+> detection but not true online handwriting recognition (that needs an SDK like
+> MyScript/Google), and the slow loop sends the whole canvas image rather than a
+> true stroke-diff. Swapping those two pieces in is the path from demo to product.
+
 ---
 
 ## Running locally

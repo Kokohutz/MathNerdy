@@ -11,6 +11,7 @@ import { SyncLoader, PulseLoader, ScaleLoader } from "react-spinners";
 import { Header } from "./components/header";
 import { IntroPopup } from "./components/intro-popup";
 import { MarkdownLatex } from "./components/markdown-latex";
+import { HandwritingCanvas } from "./components/handwriting-canvas";
 
 import xRxClient from "../../../xrx-core/react-xrx-client/src";
 
@@ -199,6 +200,9 @@ export default function Home() {
     </div>
   </div>
 </div>
+      <div className="handwritingContainer flex justify-center w-full px-4 pb-6">
+        <HandwritingCanvas />
+      </div>
     </div>
     <div className="inputContainer border-t bg-gradient-to-b from-white/80 via-white/95 to-white backdrop-blur-xl">
       <div className='flex'>

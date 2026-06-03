@@ -30,3 +30,9 @@ LLM_OBSERVABILITY_LIBRARY="none"
 # === Frontend ===
 # Selects the UI skin in nextjs-client/src/app/types/skinConfig.ts
 NEXT_PUBLIC_AGENT="math-tutor"
+
+# === Handwriting whiteboard (vision) ===
+# The /api/handwriting route reads the student's handwritten work with a
+# vision model via the OpenAI API. Used server-side only.
+OPENAI_API_KEY="your_openai_api_key_here"
+VISION_MODEL_ID="gpt-4o"
