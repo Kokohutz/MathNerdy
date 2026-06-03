@@ -18,7 +18,32 @@ type Stroke = Point[];
 const HEARTBEAT_MS = 120; // fast-loop tick
 const PAUSE_MS = 800; // silence that counts as a boundary
 
+// Must match FEEDBACK_DELIMITER in app/api/handwriting/route.ts. The streamed
+// text is "<reading> ###FEEDBACK### <feedback>"; we split the live accumulator
+// on it so both panels fill in word-by-word.
+const FEEDBACK_DELIMITER = "###FEEDBACK###";
+
 type Feedback = { reading: string; feedback: string };
+
+// Split the streamed accumulator into the two sections. While the delimiter is
+// still arriving we keep everything in "reading"; a trailing partial delimiter
+// is hidden so it doesn't flicker on screen.
+function splitStream(text: string): Feedback {
+  const idx = text.indexOf(FEEDBACK_DELIMITER);
+  if (idx !== -1) {
+    return {
+      reading: text.slice(0, idx).trim(),
+      feedback: text.slice(idx + FEEDBACK_DELIMITER.length).trim(),
+    };
+  }
+  // Hide a partial delimiter forming at the tail (e.g. "###FEED").
+  for (let n = FEEDBACK_DELIMITER.length - 1; n > 0; n--) {
+    if (text.endsWith(FEEDBACK_DELIMITER.slice(0, n))) {
+      return { reading: text.slice(0, text.length - n).trim(), feedback: "" };
+    }
+  }
+  return { reading: text.trim(), feedback: "" };
+}
 
 export function HandwritingCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -122,6 +147,7 @@ export function HandwritingCanvas() {
 
     analyzingRef.current = true;
     setStatus("analyzing");
+    setFeedback({ reading: "", feedback: "" });
     try {
       const image = canvasRef.current!.toDataURL("image/png");
       const res = await fetch("/api/handwriting", {
@@ -129,13 +155,24 @@ export function HandwritingCanvas() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image, strokeCount: strokes.length }),
       });
-      if (res.ok) {
-        const data: Feedback = await res.json();
-        setFeedback(data);
-        lastSignatureRef.current = signature;
-      } else {
+
+      if (!res.ok || !res.body) {
         console.error("handwriting endpoint returned", res.status);
+        return;
       }
+
+      // Stream the response and update both panels as tokens arrive.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setFeedback(splitStream(acc));
+      }
+      setFeedback(splitStream(acc));
+      lastSignatureRef.current = signature;
     } catch (err) {
       console.error("handwriting analysis failed", err);
     } finally {

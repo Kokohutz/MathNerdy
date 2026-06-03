@@ -126,13 +126,16 @@ reads it and gives feedback. It implements a two-loop architecture:
 - **Slow loop** — on a detected pause it rasterizes the canvas to a PNG data URL
   and POSTs to `/api/handwriting`. It is guarded so only one request runs at a
   time, and a cheap content signature (`strokes:points`) prevents re-analyzing
-  unchanged work. The returned `{ reading, feedback }` is rendered via
+  unchanged work. The response is **streamed** and rendered live via
   `MarkdownLatex` (LaTeX-aware).
 
 `api/handwriting/route.ts` is a **server-side** Next.js route that calls the
-**OpenAI vision API** (`VISION_MODEL_ID`, default `gpt-4o`) using
-`OPENAI_API_KEY`. The key never reaches the browser. It returns a JSON object
-`{ reading, feedback }`.
+**OpenAI vision API** (`VISION_MODEL_ID`, default `gpt-4o`) using `OPENAI_API_KEY`
+(falls back to `LLM_API_KEY`). The key never reaches the browser. It **streams**
+plain text shaped as `<reading> ###FEEDBACK### <feedback>`; the client splits the
+live accumulator on the `FEEDBACK_DELIMITER` so both panels fill in word-by-word.
+The delimiter constant must stay in sync between the route and
+`components/handwriting-canvas.tsx`.
 
 > Known gaps vs. a production handwriting product: the fast loop does boundary
 > detection but not true online handwriting recognition (that needs an SDK like
@@ -169,6 +172,22 @@ python -m unittest test/test.py
 ```
 
 ---
+
+## Evaluation / verification workflow
+
+Prefer **visual verification with screenshots** when changing anything
+user-facing. When a change is ready to evaluate, run the app and capture a
+screenshot of the relevant screen, and ask the maintainer to confirm against a
+screenshot too. To run the UI locally:
+
+```bash
+cd nextjs-client && npm install && npm run dev   # needs xrx-core submodule present
+```
+
+Note: a screenshot is only meaningful with the `xrx-core` submodule initialized
+and an `OPENAI_API_KEY` set (the handwriting feedback needs a live vision call).
+Headless/CI containers without a browser or key can't produce one — fall back to
+running locally and sharing the image.
 
 ## Conventions & gotchas
 
