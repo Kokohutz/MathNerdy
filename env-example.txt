@@ -46,3 +46,15 @@ NEXT_PUBLIC_AGENT="math-tutor"
 # gpt-5.4 is vision-capable and strong at handwriting; gpt-5.5 is higher quality.
 OPENAI_API_KEY="your_openai_api_key_here"
 VISION_MODEL_ID="gpt-5.4"
+
+# === Claude Code wrapper (Anthropic Claude Opus 5.5) ===
+# Optional `claude-code` service (claude-code-wrapper/) exposing an
+# OpenAI-compatible /v1/chat/completions endpoint backed by the Claude Code
+# CLI. To route the reasoning agent through Claude Opus 5.5 instead of
+# OpenAI, set:
+#   LLM_BASE_URL="http://claude-code:8005/v1"
+#   LLM_MODEL_ID="claude-opus-5-5"
+# (LLM_API_KEY just needs to be non-empty; real auth is ANTHROPIC_API_KEY,
+# which never leaves the claude-code container.)
+ANTHROPIC_API_KEY="your_anthropic_api_key_here"
+CLAUDE_CODE_MODEL="claude-opus-5-5"

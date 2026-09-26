@@ -41,6 +41,7 @@ Browser (nextjs-client :3000)
   xrx-orchestrator :8000  ──┬── xrx-stt        :8001   speech → text  (Groq Whisper)
   (xrx-core submodule)      ├── xrx-tts        :8002   text → speech  (ElevenLabs)
                             ├── xrx-reasoning  :8003   ← the agent in reasoning/
+                            ├── claude-code    :8005   OpenAI-compatible wrapper → Claude Code (Opus 5.5)
                             └── xrx-redis      :6379   task / cancellation state
 ```
 
@@ -107,6 +108,36 @@ calc_solve(expression, operation='derivative', point=None, terms=None)
 
 ---
 
+## Claude Code wrapper (`claude-code-wrapper/`)
+
+An optional `claude-code` service that runs the **Claude Code CLI headless**
+(`claude -p`) behind an **OpenAI-compatible** `POST /v1/chat/completions`
+endpoint (plus `POST /run` for raw prompts and `GET /health`). Default model:
+**Claude Opus 5.5** (`claude-opus-5-5`, via `CLAUDE_CODE_MODEL`).
+
+Because the reasoning agent is driven entirely by env, switching it to Opus 5.5
+is config-only:
+
+```
+LLM_BASE_URL="http://claude-code:8005/v1"
+LLM_MODEL_ID="claude-opus-5-5"
+```
+
+Notes:
+- Auth is `ANTHROPIC_API_KEY` **inside the wrapper container**; the OpenAI-style
+  `Authorization` header from callers is ignored (`LLM_API_KEY` just needs to be
+  non-empty for the OpenAI SDK).
+- `response_format` (`json_schema` / `json_object`) is **emulated via prompt
+  instructions** — not constrained decoding — and the wrapper strips markdown
+  fences from JSON replies. `_create_tutor_turn`'s JSON-repair fallback covers
+  rare misses.
+- Text-only and non-streaming: the handwriting vision route stays on OpenAI,
+  and `stream: true` returns a 400.
+- Tested via `CLAUDE_BIN` override (see `server.mjs`), which points the server
+  at a stub CLI in tests.
+
+---
+
 ## The frontend (`nextjs-client/src/app/`)
 
 | File | Role |
@@ -137,7 +168,7 @@ reads it and gives feedback. It implements a two-loop architecture:
   `MarkdownLatex` (LaTeX-aware).
 
 `api/handwriting/route.ts` is a **server-side** Next.js route that calls the
-**OpenAI vision API** (`VISION_MODEL_ID`, default `gpt-4o`) using `OPENAI_API_KEY`
+**OpenAI vision API** (`VISION_MODEL_ID`, default `gpt-5.4`) using `OPENAI_API_KEY`
 (falls back to `LLM_API_KEY`). The key never reaches the browser. It **streams**
 plain text shaped as `<reading> ###FEEDBACK### <feedback>`; the client splits the
 live accumulator on the `FEEDBACK_DELIMITER` so both panels fill in word-by-word.
@@ -162,8 +193,9 @@ docker-compose up --build             # app at http://localhost:3000
 Required `.env` keys (see `env-example.txt`): `LLM_API_KEY` (OpenAI),
 `GROQ_STT_API_KEY`, `ELEVENLABS_API_KEY`, and `OPENAI_API_KEY` for the
 handwriting vision route (falls back to `LLM_API_KEY` if unset).
-`NEXT_PUBLIC_AGENT` selects the UI skin (default `math-tutor`); `LLM_MODEL_ID`
-and `VISION_MODEL_ID` select the models.
+`ANTHROPIC_API_KEY` is needed only when using the `claude-code` wrapper
+(Opus 5.5). `NEXT_PUBLIC_AGENT` selects the UI skin (default `math-tutor`);
+`LLM_MODEL_ID` and `VISION_MODEL_ID` select the models.
 
 ---
 

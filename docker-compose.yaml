@@ -61,6 +61,18 @@ services:
     networks:
       - xrx_network
 
+  claude-code:
+    container_name: claude-code
+    build:
+      context: .
+      dockerfile: claude-code-wrapper/Dockerfile
+    ports:
+      - 8005:8005
+    env_file:
+      - .env
+    networks:
+      - xrx_network
+
   # xrx-guardrails:
   #   container_name: xrx-guardrails
   #   build:
