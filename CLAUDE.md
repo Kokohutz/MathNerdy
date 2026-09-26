@@ -2,9 +2,12 @@
 
 A voice-enabled AI **calculus tutor**. The student speaks; the app replies with
 synthesized speech **and** renders live LaTeX/Markdown math on an interactive
-"whiteboard." Built on **8090's xRx framework**. The reasoning LLM and the
-handwriting-vision call both use the **OpenAI API** (model via env); STT is
-**Whisper on Groq** and TTS is **ElevenLabs** (both swappable, separate services).
+"whiteboard." Built on **8090's xRx framework**. The reasoning tutor and the
+handwriting-vision call both run on **Claude Opus 5.5** by default — the tutor
+through the OpenAI-compatible `claude-code` wrapper, vision straight through the
+Anthropic API (models via env; `claude-fable-5-1` or OpenAI `gpt-5.4` are
+config-only switches). STT is **Whisper on Groq** and TTS is **ElevenLabs**
+(both swappable, separate services).
 
 > Fork of `bklieger-groq/mathtutor-on-groq` ("Math Tutor on Groq").
 
@@ -85,9 +88,10 @@ compute it, at the cost of one extra LLM call per turn.
 
 The reasoning client (`initialize_llm_client` from `xrx-core`) is the OpenAI
 SDK driven entirely by `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL_ID`, so
-switching providers/models is a config change. Default model is **`gpt-5.4`**
-(vision-capable, cost/quality balance; `gpt-5.5` for higher quality,
-`gpt-5.4-mini`/`-nano` for cost).
+switching providers/models is a config change. Default: `LLM_BASE_URL` points
+at the **`claude-code` wrapper** and `LLM_MODEL_ID="claude-opus-5-5"`. Swap to
+Fable with `claude-fable-5-1`, or to OpenAI by pointing `LLM_BASE_URL` at
+`https://api.openai.com/v1` with `gpt-5.4`.
 
 The tutor turn uses **Structured Outputs** (`response_format` `json_schema`,
 `strict: true` — see `TUTOR_TURN_SCHEMA` in `executor.py`), which guarantees the
@@ -110,10 +114,13 @@ calc_solve(expression, operation='derivative', point=None, terms=None)
 
 ## Claude Code wrapper (`claude-code-wrapper/`)
 
-An optional `claude-code` service that runs the **Claude Code CLI headless**
-(`claude -p`) behind an **OpenAI-compatible** `POST /v1/chat/completions`
-endpoint (plus `POST /run` for raw prompts and `GET /health`). Default model:
-**Claude Opus 5.5** (`claude-opus-5-5`, via `CLAUDE_CODE_MODEL`).
+The `claude-code` service exposes Claude behind an **OpenAI-compatible**
+`POST /v1/chat/completions` endpoint (plus `POST /run` and `GET /health`).
+Default model: **Claude Opus 5.5** (`claude-opus-5-5`, via `CLAUDE_CODE_MODEL`).
+Two backends, chosen by `CLAUDE_WRAPPER_MODE` (default `api` when
+`ANTHROPIC_API_KEY` is set): **api** calls the Anthropic Messages API directly
+(~2s/turn, proper role-mapped history), **cli** shells out to the Claude Code
+CLI headless (`claude -p`, login auth).
 
 Because the reasoning agent is driven entirely by env, switching it to Opus 5.5
 is config-only:
@@ -153,20 +160,23 @@ last `widget` message, `JSON.parse`s its `details`, and renders each entry by
 `type`. Today only `defineWhiteboard` is handled — add new widget types by
 extending that `switch`.
 
-### Handwriting whiteboard (input + vision feedback)
+### Handwriting whiteboard (A4 page, input + vision feedback)
 
-`components/handwriting-canvas.tsx` lets the student **write and highlight**
-math; a vision model reads it and gives feedback. It implements a two-loop
-architecture:
+`components/handwriting-canvas.tsx` is an **A4 sheet** (world coordinates,
+portrait or landscape via the 📄 toggle) the student writes on: ✏️ pen, 🖍️
+highlighter, 🖐️ pan, pinch/wheel zoom (view clamped so the sheet is never
+lost), +/−/⌖ controls. A vision model reads the work and gives feedback.
+Two-loop architecture:
 
 - **Fast loop** — a ~120ms `setInterval` heartbeat that watches the stroke buffer
   for a pause (boundary detection). It never touches the network. Pointer events
   capture `{x, y, t, pressure}` into a stroke buffer ("strokes, not pixels").
-- **Slow loop** — on a detected pause it rasterizes the canvas to a PNG data URL
-  and POSTs to `/api/handwriting` (with the tutor's current `question` for
-  context). It is guarded so only one request runs at a time, and a cheap
-  content signature (`strokes:points`) prevents re-analyzing unchanged work.
-  The response is **streamed** and rendered live.
+- **Slow loop** — on a detected pause it rasterizes the **content bounding
+  box** (not the viewport — the AI reads the whole working wherever it is on
+  the sheet) and POSTs to `/api/handwriting` with the tutor's current
+  `question`. Guarded so only one request runs at a time; a content signature
+  (`strokes:points`) prevents re-analyzing unchanged work. The response is
+  **streamed** and rendered live.
 
 **Tools & workings notebook:** the student can switch between ✏️ pen and 🖍️
 highlighter. Each page of work can be saved and reopened like paper — a
@@ -177,17 +187,18 @@ role-tagged JSON `Working` in `localStorage` (`mathnerdy-workings`):
   "id": "w…", "createdAt": 0,
   "question": { "author": "tutor", "content": "…whiteboard content…" },
   "work":     { "author": "user", "strokes": [{ "tool": "pen|highlighter", "points": [{"x":0,"y":0,"t":0,"pressure":0.5}] }] },
-  "analysis": { "author": "assistant", "reading": "…", "feedback": "…" }
+  "analysis": { "author": "assistant", "reading": "…", "feedback": "…" },
+  "view": { "x": 0, "y": 0, "k": 1 }, "orientation": "portrait|landscape"
 }
 ```
 
 The roles make it unambiguous what the tutor asked, what the student wrote,
 and what the AI said about it.
 
-`api/handwriting/route.ts` is a **server-side** Next.js route that calls the
-**OpenAI vision API** (`VISION_MODEL_ID`, default `gpt-5.4`) using `OPENAI_API_KEY`
-(falls back to `LLM_API_KEY`; the client is constructed lazily so keyless
-builds don't crash). It **streams** plain text shaped as
+`api/handwriting/route.ts` is a **server-side** Next.js route that calls
+**Claude vision** via the Anthropic Messages API (`VISION_MODEL_ID`, default
+`claude-opus-5-5`; auth `ANTHROPIC_API_KEY`; plain `fetch` + SSE parsing, no
+SDK). It re-emits the model's stream as plain text shaped as
 `<reading> ###FEEDBACK### <feedback>`; the client splits the live accumulator
 on the `FEEDBACK_DELIMITER` so both panels fill in word-by-word. The delimiter
 constant must stay in sync between the route and
@@ -236,12 +247,11 @@ cp env-example.txt .env               # then add your API keys
 docker-compose up --build             # app at http://localhost:3000
 ```
 
-Required `.env` keys (see `env-example.txt`): `LLM_API_KEY` (OpenAI),
-`GROQ_STT_API_KEY`, `ELEVENLABS_API_KEY`, and `OPENAI_API_KEY` for the
-handwriting vision route (falls back to `LLM_API_KEY` if unset).
-`ANTHROPIC_API_KEY` is needed only when using the `claude-code` wrapper
-(Opus 5.5). `NEXT_PUBLIC_AGENT` selects the UI skin (default `math-tutor`);
-`LLM_MODEL_ID` and `VISION_MODEL_ID` select the models.
+Required `.env` keys (see `env-example.txt`): `ANTHROPIC_API_KEY` (tutor +
+vision), `GROQ_STT_API_KEY`, `ELEVENLABS_API_KEY`; `LLM_API_KEY` only needs to
+be non-empty unless running the tutor on OpenAI. `NEXT_PUBLIC_AGENT` selects
+the UI skin (default `math-tutor`); `LLM_MODEL_ID`, `CLAUDE_CODE_MODEL` and
+`VISION_MODEL_ID` select the models.
 
 ---
 

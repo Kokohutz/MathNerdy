@@ -1,13 +1,17 @@
-// OpenAI-compatible HTTP wrapper around the Claude Code CLI (headless mode).
+// OpenAI-compatible HTTP wrapper for Claude models.
 //
 // Exposes POST /v1/chat/completions so any OpenAI-SDK client in this stack —
 // notably the reasoning agent, which is driven entirely by LLM_BASE_URL /
-// LLM_MODEL_ID — can run on Claude models (default: Opus 5.5) by pointing at
-// this service. Auth is ANTHROPIC_API_KEY on this container; the OpenAI-style
-// Authorization header from callers is ignored.
+// LLM_MODEL_ID — can run on Claude (default: Opus 5.5) by pointing at this
+// service. Two backends:
+//
+//   api mode (default when ANTHROPIC_API_KEY is set): direct fetch to the
+//     Anthropic Messages API — no process spawn, ~2s per tutor turn.
+//   cli mode (fallback, or CLAUDE_WRAPPER_MODE=cli): shells out to the
+//     Claude Code CLI headless (`claude -p`), using its login auth.
 //
 // Endpoints:
-//   GET  /health                 liveness probe
+//   GET  /health                 liveness probe (reports mode + model)
 //   POST /v1/chat/completions    OpenAI chat-completions shape (no streaming)
 //   POST /run                    { prompt, system?, model? } -> { result }
 
@@ -19,6 +23,10 @@ const PORT = parseInt(process.env.PORT || "8005", 10);
 const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude"; // overridable for tests
 const DEFAULT_MODEL = process.env.CLAUDE_CODE_MODEL || "claude-opus-5-5";
 const TIMEOUT_MS = parseInt(process.env.CLAUDE_TIMEOUT_MS || "120000", 10);
+const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+const MODE =
+  process.env.CLAUDE_WRAPPER_MODE ||
+  (process.env.ANTHROPIC_API_KEY ? "api" : "cli");
 
 function flattenContent(content) {
   if (typeof content === "string") return content;
@@ -66,6 +74,68 @@ export function buildPromptParts(body) {
 export function stripFences(text) {
   const m = /^\s*```(?:json)?\s*\n?([\s\S]*?)\n?\s*```\s*$/.exec(text);
   return m ? m[1] : text;
+}
+
+// Proper role-mapped messages for the Anthropic Messages API (api mode).
+// Consecutive same-role turns are merged and the list must start with a user
+// turn (the tutor seeds an assistant greeting first).
+export function buildApiMessages(body) {
+  const msgs = [];
+  for (const m of body.messages || []) {
+    if (m.role === "system") continue;
+    const text = flattenContent(m.content);
+    if (!text) continue;
+    const role = m.role === "assistant" ? "assistant" : "user";
+    if (msgs.length && msgs[msgs.length - 1].role === role) {
+      msgs[msgs.length - 1].content += "\n\n" + text;
+    } else {
+      msgs.push({ role, content: text });
+    }
+  }
+  if (msgs.length === 0 || msgs[0].role === "assistant") {
+    msgs.unshift({ role: "user", content: "(The conversation begins.)" });
+  }
+  return msgs;
+}
+
+async function callAnthropic({ system, messages, model, maxTokens }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY || "",
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        ...(system ? { system } : {}),
+        messages,
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`anthropic api ${res.status}: ${detail.slice(0, 400)}`);
+    }
+    const j = await res.json();
+    const text = (j.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    return {
+      result: text,
+      usage: {
+        input_tokens: j.usage?.input_tokens ?? 0,
+        output_tokens: j.usage?.output_tokens ?? 0,
+      },
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function runClaude({ system, prompt, model }) {
@@ -137,7 +207,7 @@ function sendJson(res, status, obj) {
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "GET" && req.url === "/health") {
-      return sendJson(res, 200, { status: "ok", model: DEFAULT_MODEL });
+      return sendJson(res, 200, { status: "ok", mode: MODE, model: DEFAULT_MODEL });
     }
 
     if (req.method === "POST" && req.url === "/v1/chat/completions") {
@@ -149,7 +219,15 @@ const server = http.createServer(async (req, res) => {
       }
       const model = body.model || DEFAULT_MODEL;
       const { system, prompt } = buildPromptParts(body);
-      const result = await runClaude({ system, prompt, model });
+      const result =
+        MODE === "api"
+          ? await callAnthropic({
+              system,
+              messages: buildApiMessages(body),
+              model,
+              maxTokens: body.max_tokens ?? 4096,
+            })
+          : await runClaude({ system, prompt, model });
 
       let content = typeof result.result === "string" ? result.result : "";
       if (body.response_format) content = stripFences(content).trim();
@@ -180,11 +258,19 @@ const server = http.createServer(async (req, res) => {
       if (!body.prompt || typeof body.prompt !== "string") {
         return sendJson(res, 400, { error: "missing 'prompt' string" });
       }
-      const result = await runClaude({
-        system: body.system || "",
-        prompt: body.prompt,
-        model: body.model || DEFAULT_MODEL,
-      });
+      const result =
+        MODE === "api"
+          ? await callAnthropic({
+              system: body.system || "",
+              messages: [{ role: "user", content: body.prompt }],
+              model: body.model || DEFAULT_MODEL,
+              maxTokens: body.max_tokens ?? 2048,
+            })
+          : await runClaude({
+              system: body.system || "",
+              prompt: body.prompt,
+              model: body.model || DEFAULT_MODEL,
+            });
       return sendJson(res, 200, { result: result.result ?? "", raw: result });
     }
 
@@ -196,5 +282,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`claude-code wrapper listening on :${PORT} (default model: ${DEFAULT_MODEL})`);
+  console.log(
+    `claude wrapper listening on :${PORT} (mode: ${MODE}, default model: ${DEFAULT_MODEL})`
+  );
 });

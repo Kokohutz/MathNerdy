@@ -82,18 +82,18 @@ body {
   color: var(--paper-card);
 }
 
-/* Student drawing canvas: shrinks with the viewport */
+/* Student drawing canvas (infinite page viewport): shrinks with the viewport */
 .hwCanvas {
-  height: 320px;
+  height: 460px;
 }
 @media (max-width: 900px) {
   .hwCanvas {
-    height: 280px;
+    height: 360px;
   }
 }
 @media (max-width: 640px) {
   .hwCanvas {
-    height: 230px;
+    height: 300px;
   }
 }
 

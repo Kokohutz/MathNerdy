@@ -1,19 +1,34 @@
 # ============== Configuration ==============
 # Minimal configuration to get started.
 # Get your API keys from the following URLs:
-# - OpenAI: https://platform.openai.com/api-keys
+# - Anthropic: https://console.anthropic.com/settings/keys
 # - Groq (STT only): https://console.groq.com/keys/
 # - ElevenLabs: https://elevenlabs.io/app/speech-synthesis/text-to-speech
 # =============================================
 
-# === LLM Configuration (OpenAI) ===
-# The reasoning agent uses the OpenAI SDK; point it at the OpenAI API.
-# gpt-5.4 is the cost/quality sweet spot and supports Structured Outputs
-# (response_format json_schema). Cheaper: gpt-5.4-mini / gpt-5.4-nano.
-# Higher quality: gpt-5.5. The model must support Structured Outputs.
-LLM_API_KEY="your_openai_api_key_here"
-LLM_BASE_URL="https://api.openai.com/v1"
-LLM_MODEL_ID="gpt-5.4"
+# === Anthropic (tutor + vision) ===
+# One key powers both the reasoning tutor (via the claude-code wrapper) and
+# the handwriting vision route. Never sent to the browser.
+ANTHROPIC_API_KEY="your_anthropic_api_key_here"
+
+# === Tutor LLM ===
+# The reasoning agent speaks the OpenAI protocol; the claude-code service
+# translates it to Claude. Default model: Opus 5.5. To use Fable instead,
+# set LLM_MODEL_ID="claude-fable-5-1" (and/or VISION_MODEL_ID below).
+LLM_API_KEY="not-used-but-must-be-non-empty"
+LLM_BASE_URL="http://claude-code:8005/v1"
+LLM_MODEL_ID="claude-opus-5-5"
+CLAUDE_CODE_MODEL="claude-opus-5-5"
+# CLAUDE_WRAPPER_MODE="cli"   # force CLI mode (claude login auth) instead of the API
+
+# To run the tutor on OpenAI instead, use:
+#   LLM_API_KEY="your_openai_api_key"
+#   LLM_BASE_URL="https://api.openai.com/v1"
+#   LLM_MODEL_ID="gpt-5.4"
+
+# === Handwriting vision (Claude Opus reads the whiteboard) ===
+# Streams via the Anthropic API using ANTHROPIC_API_KEY.
+VISION_MODEL_ID="claude-opus-5-5"
 
 # === Speech-to-Text (STT) Configuration ===
 # STT is a separate service (not the chat LLM). Groq Whisper is the default;
@@ -37,24 +52,3 @@ LLM_OBSERVABILITY_LIBRARY="none"
 # === Frontend ===
 # Selects the UI skin in nextjs-client/src/app/types/skinConfig.ts
 NEXT_PUBLIC_AGENT="math-tutor"
-
-# === Handwriting whiteboard (vision) ===
-# The /api/handwriting route reads the student's handwritten work with a
-# vision model via the OpenAI API. Used server-side only. VISION_MODEL_ID
-# must be a vision-capable model. If OPENAI_API_KEY is unset the route falls
-# back to LLM_API_KEY, so a single OpenAI key works for everything.
-# gpt-5.4 is vision-capable and strong at handwriting; gpt-5.5 is higher quality.
-OPENAI_API_KEY="your_openai_api_key_here"
-VISION_MODEL_ID="gpt-5.4"
-
-# === Claude Code wrapper (Anthropic Claude Opus 5.5) ===
-# Optional `claude-code` service (claude-code-wrapper/) exposing an
-# OpenAI-compatible /v1/chat/completions endpoint backed by the Claude Code
-# CLI. To route the reasoning agent through Claude Opus 5.5 instead of
-# OpenAI, set:
-#   LLM_BASE_URL="http://claude-code:8005/v1"
-#   LLM_MODEL_ID="claude-opus-5-5"
-# (LLM_API_KEY just needs to be non-empty; real auth is ANTHROPIC_API_KEY,
-# which never leaves the claude-code container.)
-ANTHROPIC_API_KEY="your_anthropic_api_key_here"
-CLAUDE_CODE_MODEL="claude-opus-5-5"
