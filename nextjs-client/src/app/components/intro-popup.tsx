@@ -24,7 +24,7 @@ export const IntroPopup = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <Card className="w-full max-w-lg mx-4">
+      <Card className="w-full max-w-lg mx-4 sketchy">
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-center">
             Welcome to Math Tutor on Groq
@@ -33,7 +33,7 @@ export const IntroPopup = () => {
         <CardContent className="space-y-4">
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
-              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-orange-100 text-orange-700 font-semibold">
+              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hlBadge font-semibold">
                 1
               </span>
               <p className="text-sm">
@@ -42,7 +42,7 @@ export const IntroPopup = () => {
             </div>
             
             <div className="flex items-start space-x-3">
-              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-orange-100 text-orange-700 font-semibold">
+              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hlBadge font-semibold">
                 2
               </span>
               <p className="text-sm">
@@ -51,7 +51,7 @@ export const IntroPopup = () => {
             </div>
             
             <div className="flex items-start space-x-3">
-              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-orange-100 text-orange-700 font-semibold">
+              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hlBadge font-semibold">
                 3
               </span>
               <p className="text-sm">

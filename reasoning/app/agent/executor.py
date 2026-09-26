@@ -46,10 +46,25 @@ TUTOR_TURN_SCHEMA = {
                         "properties": {
                             "type": {"type": "string"},
                             "parameters": {
-                                "type": "object",
-                                "additionalProperties": False,
-                                "required": ["content"],
-                                "properties": {"content": {"type": "string"}},
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "required": ["content"],
+                                        "properties": {"content": {"type": "string"}},
+                                    },
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "required": ["expression", "xmin", "xmax", "title"],
+                                        "properties": {
+                                            "expression": {"type": "string"},
+                                            "xmin": {"type": "number"},
+                                            "xmax": {"type": "number"},
+                                            "title": {"type": ["string", "null"]},
+                                        },
+                                    },
+                                ]
                             },
                         },
                     },
@@ -96,6 +111,15 @@ SYSTEM_PROMPT = """You are a calculus tutor that helps students. You can show li
      - content: String (latex styled content for the whiteboard)
     - Example:
         - defineWhiteboard": { "parameters": { "content": "### Definition of a derivative:\n\n$$\\frac{df}{dx} = \\lim_{h \to 0} \\frac{f(x + h) - f(x)}{h}$$" } }
+
+2. defineGraph
+   - Description: Shows an interactive hand-drawn plot of a function of x. If the expression uses the parameter "a", the student gets a slider that morphs the curve live — great for showing how a coefficient changes a function. The student can also trace (x, y) values by touching the curve.
+   - Parameters:
+     - expression: String (Python-style math in x, optionally a: e.g. "x^2", "sin(a*x)", "a*x^2 - 2*x". Functions: sin, cos, tan, exp, log, sqrt, abs)
+     - xmin, xmax: Numbers (plot range)
+     - title: String (short handwritten caption)
+   - Example:
+        - "defineGraph": { "parameters": { "expression": "sin(a*x)", "xmin": -6.3, "xmax": 6.3, "title": "How a stretches sine" } }
 
 ## Output format
 

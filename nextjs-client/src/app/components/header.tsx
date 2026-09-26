@@ -25,7 +25,7 @@ export function Header() {
       <div className="flex items-center font-semibold">
         <IconSeparator className="size-6 text-muted-foreground/50" />
         <a href="/">Math Tutor</a>
-        <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-md border border-orange-600 bg-orange-100 text-orange-700">
+        <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-md border hlBadge">
           BETA
         </span>
         <IconSeparator className="size-6 text-muted-foreground/50" />
@@ -33,7 +33,7 @@ export function Header() {
           href="/"
           rel="noopener noreferrer"
           className={cn(buttonVariants({ variant: 'ghost' }))}
-          style={{ borderRadius: 0, color: '#F55036', padding: '4px' }}
+          style={{ borderRadius: 0, color: 'var(--pencil)', padding: '4px' }}
           onClick={() => window.location.reload()}
         >
           <span className="flex">Start New Chat</span>

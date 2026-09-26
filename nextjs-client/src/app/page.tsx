@@ -12,6 +12,7 @@ import { Header } from "./components/header";
 import { IntroPopup } from "./components/intro-popup";
 import { MarkdownLatex } from "./components/markdown-latex";
 import { HandwritingCanvas } from "./components/handwriting-canvas";
+import { HandDrawnPlot } from "./components/hand-drawn-plot";
 
 import xRxClient from "../../../xrx-core/react-xrx-client/src";
 
@@ -105,8 +106,6 @@ export default function Home() {
   }
 
   const renderedWidgets = useMemo(() => {
-    console.log(JSON.stringify(chatHistory));
-
     let widget:any = chatHistory.findLast(chat => chat.type === 'widget')?.message;
     let details: any;
     if (!widget){
@@ -135,6 +134,19 @@ export default function Home() {
                   <MarkdownLatex content={parameters.content}></MarkdownLatex>
               </div>
             );
+          case 'defineGraph':
+            return (
+              <div key={`widget-${index}`} className="flex items-center justify-center">
+                <HandDrawnPlot
+                  expression={parameters.expression}
+                  xmin={parameters.xmin}
+                  xmax={parameters.xmax}
+                  ymin={parameters.ymin}
+                  ymax={parameters.ymax}
+                  title={parameters.title}
+                />
+              </div>
+            );
           default:
             return null;
         }
@@ -142,6 +154,20 @@ export default function Home() {
     }
   }, [chatHistory]);
 
+  // The tutor's current whiteboard content — passed to the handwriting canvas
+  // so each saved "working" records which question the student was answering.
+  const currentQuestion = useMemo(() => {
+    const widget: any = chatHistory.findLast((chat) => chat.type === "widget")?.message;
+    if (!widget) return null;
+    try {
+      const details = JSON.parse(widget.details);
+      if (!Array.isArray(details)) return null;
+      const wb = details.findLast((w: any) => w?.type === "defineWhiteboard");
+      return wb?.parameters?.content ?? null;
+    } catch {
+      return null;
+    }
+  }, [chatHistory]);
 
   return (
     <main className="mainContainer">
@@ -155,12 +181,12 @@ export default function Home() {
     <div className="chatContainer flex-auto">
       <div className={`iconContainer flex ${!isVoiceMode ? 'hidden' : ''}`}>
         <SyncLoader
-                color={"#F15950"}
+                color={"var(--pencil)"}
                 loading={isAgentSpeaking}
                 size={20}
                 />
         <PulseLoader
-            color={"#F15950"}
+            color={"var(--pencil)"}
             loading={isAgentThinking}
             size={20}
             />
@@ -169,7 +195,7 @@ export default function Home() {
           width: isAgentSpeaking || isAgentThinking ? '0px' : '50px',
           height: isAgentSpeaking || isAgentThinking ? '0px' : '50px',
           borderRadius: '50%',
-          backgroundColor: '#F15950',
+          backgroundColor: 'var(--pencil)',
           transition: 'all 0.5s',
           position: 'absolute',
           left: '50%',
@@ -189,7 +215,7 @@ export default function Home() {
       gap: '1rem',
       justifyContent: 'center',
       alignContent: 'center',
-      width: '100vw',
+      width: '100%',
       // height: 'calc(100vh - 600px)',
       padding: '3rem',
       boxSizing: 'border-box',
@@ -201,10 +227,10 @@ export default function Home() {
   </div>
 </div>
       <div className="handwritingContainer flex justify-center w-full px-4 pb-6">
-        <HandwritingCanvas />
+        <HandwritingCanvas question={currentQuestion} />
       </div>
     </div>
-    <div className="inputContainer border-t bg-gradient-to-b from-white/80 via-white/95 to-white backdrop-blur-xl">
+    <div className="inputContainer border-t backdrop-blur-xl" style={{ background: 'var(--paper)', borderColor: 'var(--pencil-soft)' }}>
       <div className='flex'>
           <div className="textInputContainer" >
             <div id='speechDetection' style={{ justifyContent: 'center' }}>

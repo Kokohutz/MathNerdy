@@ -3,33 +3,115 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-rgb: 255, 255, 255;
-  --background-start-rgb: 255, 255, 255;
-  --background-end-rgb: 255, 255, 255;
-  --header-gradient: linear-gradient(to bottom, rgba(255,255,255,100%), rgba(255,255,255,90%), rgba(255,255,255,0%));
-  --grey-rgb: 220, 220, 220;
-  --grey-rgb-dark: 10, 10, 10;
+  --foreground-rgb: 30, 74, 95;
+  --background-rgb: 238, 246, 250;
+  --background-start-rgb: 238, 246, 250;
+  --background-end-rgb: 238, 246, 250;
+  --header-gradient: linear-gradient(to bottom, rgba(238,246,250,100%), rgba(238,246,250,90%), rgba(238,246,250,0%));
+  --grey-rgb: 205, 222, 232;
+  --grey-rgb-dark: 20, 40, 52;
+  /* Pencil-drawn design system — light blue "seal" theme:
+     blue ink on light blue paper, light blue highlighter */
+  --pencil: #1e4a5f;            /* deep blue-teal ink */
+  --pencil-soft: #557d8f;       /* lighter ink */
+  --paper: #eef6fa;             /* light blue paper */
+  --paper-card: #f7fbfd;        /* card paper */
+  --paper-line: rgba(30, 120, 160, 0.16); /* faint ruled lines */
+  --highlight: rgba(125, 200, 235, 0.55); /* light blue highlighter */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* --foreground-rgb: 255, 255, 255; */
-    --foreground-rgb: 255, 255, 255;
-    --background-rgb: 0, 0, 0;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-    --header-gradient: linear-gradient(to bottom, rgba(0,0,0,100%), rgba(0,0,0,90%), rgba(0,0,0,0%));
-    --grey-rgb: 100, 100, 100;
-    --grey-rgb-dark: 245, 245, 245;
+    --foreground-rgb: 207, 230, 242;
+    --background-rgb: 22, 35, 43;
+    --background-start-rgb: 22, 35, 43;
+    --background-end-rgb: 22, 35, 43;
+    --header-gradient: linear-gradient(to bottom, rgba(22,35,43,100%), rgba(22,35,43,90%), rgba(22,35,43,0%));
+    --grey-rgb: 70, 95, 110;
+    --grey-rgb-dark: 225, 240, 248;
+    /* chalk on slate blue */
+    --pencil: #cfe6f2;
+    --pencil-soft: #92b4c4;
+    --paper: #16232b;
+    --paper-card: #1d2e38;
+    --paper-line: rgba(120, 180, 220, 0.12);
+    --highlight: rgba(90, 175, 220, 0.4);
+  }
+}
+
+/* Pencil handwriting draw-on animation (HandwrittenText + sample SVGs) */
+@keyframes hwdraw {
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background-color: rgb(var(--background-rgb));
+  background-color: var(--paper);
   width: 100%;
   height: 100%;
+  font-family: var(--font-hand), "Segoe Print", "Comic Sans MS", cursive;
+}
+
+/* Hand-drawn container: uneven radii read as a wobbly pencil rectangle */
+.sketchy {
+  border: 2px solid var(--pencil);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  background: var(--paper-card);
+  box-shadow: 2px 3px 0 rgba(61, 61, 63, 0.14);
+}
+
+.sketchy-btn {
+  border: 2px solid var(--pencil);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  background: var(--paper-card);
+  color: var(--pencil);
+  font-family: var(--font-hand-accent), var(--font-hand), cursive;
+  font-size: 1.05em;
+  padding: 6px 18px;
+  cursor: pointer;
+  transform: rotate(-0.6deg);
+  transition: transform 0.15s;
+}
+.sketchy-btn:hover {
+  transform: rotate(0.4deg) scale(1.03);
+}
+.sketchy-btn.active {
+  background: var(--pencil);
+  color: var(--paper-card);
+}
+
+/* Student drawing canvas: shrinks with the viewport */
+.hwCanvas {
+  height: 320px;
+}
+@media (max-width: 900px) {
+  .hwCanvas {
+    height: 280px;
+  }
+}
+@media (max-width: 640px) {
+  .hwCanvas {
+    height: 230px;
+  }
+}
+
+/* Whiteboard grid: generous on desktop, tight on phones */
+.grid-container {
+  padding: clamp(0.75rem, 3vw, 3rem) !important;
+}
+
+.hand-accent {
+  font-family: var(--font-hand-accent), var(--font-hand), cursive;
+  color: var(--pencil);
+}
+
+/* numbered circles / badges tinted like the highlighter */
+.hlBadge {
+  background: var(--highlight);
+  color: var(--pencil);
+  border-color: var(--pencil-soft);
 }
 
 @layer utilities {
@@ -39,7 +121,8 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-hand-accent), var(--font-hand), cursive;
+  color: var(--pencil);
 }
 
 h3 {
@@ -120,7 +203,7 @@ td {
   bottom: 0;
   top: 0;
   position: fixed;
-  background-color: rgb(var(--background-rgb));
+  background-color: var(--paper);
 }
 
 .title {
@@ -146,7 +229,14 @@ td {
   margin-bottom: 20px;
   padding-left: 10px;
   padding-right: 10px;
-  background-color: #F9F9FA;
+  /* ruled notebook paper */
+  background-color: var(--paper);
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 31px,
+    var(--paper-line) 31px,
+    var(--paper-line) 32px
+  );
   scrollbar-color: rgb(var(--grey-rgb)) rgb(var(--background-rgb)); /* Two valid colors*/
 }
 
@@ -275,23 +365,28 @@ td {
 }
 
 .widget-button {
-  color: rgb(var(--background-rgb)); 
-  background-color: #F15950;
-  border-color: #F15950;
-  border-radius: 10px;
-  /* border-width: 2px;
-  border-style: solid; */
+  color: var(--pencil);
+  background-color: var(--paper-card);
+  border: 2px solid var(--pencil);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  box-shadow: 2px 3px 0 rgba(61, 61, 63, 0.14);
+  font-family: var(--font-hand-accent), var(--font-hand), cursive;
   margin: 5px;
   padding: 8px;
   font-weight: 400;
-  font-size: 0.9em;
+  font-size: 1.05em;
+  transform: rotate(-0.6deg);
+}
+.widget-button:hover {
+  transform: rotate(0.4deg) scale(1.03);
 }
 
 .enter-button {
-  color: rgb(var(--background-rgb)); 
-  background-color: #F15950;
-  border-color: #F15950;
-  border-radius: 10px;
+  color: var(--paper-card);
+  background-color: var(--pencil);
+  border: 2px solid var(--pencil);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  font-family: var(--font-hand-accent), var(--font-hand), cursive;
   font-weight: 400;
 }
 

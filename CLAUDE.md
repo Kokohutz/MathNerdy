@@ -155,25 +155,71 @@ extending that `switch`.
 
 ### Handwriting whiteboard (input + vision feedback)
 
-`components/handwriting-canvas.tsx` lets the student **draw** math; a vision model
-reads it and gives feedback. It implements a two-loop architecture:
+`components/handwriting-canvas.tsx` lets the student **write and highlight**
+math; a vision model reads it and gives feedback. It implements a two-loop
+architecture:
 
 - **Fast loop** — a ~120ms `setInterval` heartbeat that watches the stroke buffer
   for a pause (boundary detection). It never touches the network. Pointer events
   capture `{x, y, t, pressure}` into a stroke buffer ("strokes, not pixels").
 - **Slow loop** — on a detected pause it rasterizes the canvas to a PNG data URL
-  and POSTs to `/api/handwriting`. It is guarded so only one request runs at a
-  time, and a cheap content signature (`strokes:points`) prevents re-analyzing
-  unchanged work. The response is **streamed** and rendered live via
-  `MarkdownLatex` (LaTeX-aware).
+  and POSTs to `/api/handwriting` (with the tutor's current `question` for
+  context). It is guarded so only one request runs at a time, and a cheap
+  content signature (`strokes:points`) prevents re-analyzing unchanged work.
+  The response is **streamed** and rendered live.
+
+**Tools & workings notebook:** the student can switch between ✏️ pen and 🖍️
+highlighter. Each page of work can be saved and reopened like paper — a
+role-tagged JSON `Working` in `localStorage` (`mathnerdy-workings`):
+
+```jsonc
+{
+  "id": "w…", "createdAt": 0,
+  "question": { "author": "tutor", "content": "…whiteboard content…" },
+  "work":     { "author": "user", "strokes": [{ "tool": "pen|highlighter", "points": [{"x":0,"y":0,"t":0,"pressure":0.5}] }] },
+  "analysis": { "author": "assistant", "reading": "…", "feedback": "…" }
+}
+```
+
+The roles make it unambiguous what the tutor asked, what the student wrote,
+and what the AI said about it.
 
 `api/handwriting/route.ts` is a **server-side** Next.js route that calls the
 **OpenAI vision API** (`VISION_MODEL_ID`, default `gpt-5.4`) using `OPENAI_API_KEY`
-(falls back to `LLM_API_KEY`). The key never reaches the browser. It **streams**
-plain text shaped as `<reading> ###FEEDBACK### <feedback>`; the client splits the
-live accumulator on the `FEEDBACK_DELIMITER` so both panels fill in word-by-word.
-The delimiter constant must stay in sync between the route and
+(falls back to `LLM_API_KEY`; the client is constructed lazily so keyless
+builds don't crash). It **streams** plain text shaped as
+`<reading> ###FEEDBACK### <feedback>`; the client splits the live accumulator
+on the `FEEDBACK_DELIMITER` so both panels fill in word-by-word. The delimiter
+constant must stay in sync between the route and
 `components/handwriting-canvas.tsx`.
+
+### Hand-drawn design system (CONVENTION: everything is hand-drawn)
+
+The whole UI reads as **blue ink on light blue paper** (dark mode: chalk on
+slate blue). Any new UI, model, chart or visualization must use this system —
+nothing should look computer-drawn:
+
+- **Theme tokens** (`globals.css`): `--pencil`, `--pencil-soft`, `--paper`,
+  `--paper-card`, `--paper-line`, `--highlight`. Classes: `.sketchy` (wobbly
+  hand-drawn card/border), `.sketchy-btn` (+ `.active`), `.hand-accent`,
+  `.hlBadge`. Fonts: Patrick Hand (body) + Caveat (accents) via `next/font`.
+- **`components/handwriting-glyphs.ts`** — vendored Hershey Script single-stroke
+  glyphs (regenerate via the hersheytext npm package; keep the acknowledgement
+  header).
+- **`components/handwriting-synth.ts`** — the synthetic handwriting generator:
+  text → jittered pen strokes (seeded; streaming-stable). Supports the markdown
+  theme: `**bold**` (thicker ink), `*italic*` (slant), `==highlight==`
+  (highlighter swipe drawn behind the words). `toAnimatedSVG()` emits
+  standalone samples.
+- **`components/handwritten-text.tsx`** — React renderer that animates the
+  strokes drawing on (`hwdraw` keyframes); streamed text only animates the new
+  characters.
+- **`components/hand-drawn-plot.tsx` + `math-expr.ts`** — INTERACTIVE
+  hand-drawn function plots: sketched axes, animated curve, hover/drag tracing
+  of (x, f(x)), and a live parameter slider when the expression uses `a`.
+  Expressions are parsed with a safe AST parser (never `eval`). The tutor emits
+  these via the `defineGraph` widget (see `SYSTEM_PROMPT` in `executor.py`):
+  `{ "type": "defineGraph", "parameters": { "expression": "sin(a*x)", "xmin": -6.3, "xmax": 6.3, "title": "…" } }`
 
 > Known gaps vs. a production handwriting product: the fast loop does boundary
 > detection but not true online handwriting recognition (that needs an SDK like

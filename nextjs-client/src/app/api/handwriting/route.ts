@@ -7,10 +7,10 @@ import OpenAI from "openai";
 // API key never reaches the browser.
 
 // Now that all LLM usage is OpenAI, fall back to LLM_API_KEY so a single key
-// works for both the reasoning agent and this vision route.
-const apiKey = process.env.OPENAI_API_KEY || process.env.LLM_API_KEY;
-const openai = new OpenAI({ apiKey });
-const VISION_MODEL = process.env.VISION_MODEL_ID || "gpt-4o";
+// works for both the reasoning agent and this vision route. The client is
+// created lazily per-request: the SDK throws when constructed without a key,
+// which would otherwise crash builds/boots on keyless machines.
+const VISION_MODEL = process.env.VISION_MODEL_ID || "gpt-5.4";
 
 // The model streams plain text: the transcription, then this delimiter on its
 // own line, then the feedback. The client splits on it to fill the two panels
@@ -29,7 +29,7 @@ Never use the delimiter anywhere except to separate the two sections.`;
 
 export async function POST(req: NextRequest) {
   try {
-    const { image } = await req.json();
+    const { image, question } = await req.json();
 
     if (!image || typeof image !== "string") {
       return NextResponse.json(
@@ -38,12 +38,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const apiKey = process.env.OPENAI_API_KEY || process.env.LLM_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { error: "No OpenAI key configured (set OPENAI_API_KEY or LLM_API_KEY)" },
         { status: 500 }
       );
     }
+    const openai = new OpenAI({ apiKey });
 
     const completion = await openai.chat.completions.create({
       model: VISION_MODEL,
@@ -56,7 +58,11 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: "text",
-              text: "Read the handwritten math on this whiteboard and give brief feedback.",
+              text:
+                (typeof question === "string" && question.trim()
+                  ? `The tutor's current whiteboard question (written by the TUTOR, not the student):\n${question}\n\n`
+                  : "") +
+                "The image is the STUDENT's handwritten working. Read it and give brief feedback. You may use **bold**, *italics* and ==highlight== in the feedback for emphasis.",
             },
             { type: "image_url", image_url: { url: image } },
           ],
